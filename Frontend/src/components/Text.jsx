@@ -46,7 +46,7 @@ const Text = ({ quillRef, onContentChange }) => {
         quillRef.current = null;
       }
     };
-  }, []);
+  }, [quillRef, onContentChange]);
 
   return (
     <div className="p-12">

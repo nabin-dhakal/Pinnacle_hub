@@ -33,7 +33,7 @@ const Tools = ({ quillRef }) => {
   return (
     <div className="flex items-center gap-1 bg-gray-50 rounded-lg px-2 py-1">
       
-      {/* Text Formatting */}
+  
       <button
         onClick={() => formatText('bold')}
         className="px-3 py-2 rounded hover:bg-white hover:shadow-sm transition font-bold"
