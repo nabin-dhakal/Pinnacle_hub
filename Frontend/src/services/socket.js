@@ -43,16 +43,21 @@ export const disconnectSocket = () => {
 
 export const getSocket = () => socket;
 
-export const emitDocumentChange = (delta) => {
+export const emitDocumentChange = ({ delta, userId }) => {
   if (socket && socket.readyState === WebSocket.OPEN) {
     const message = {
       type: 'operation',
-      payload: delta,
-      timestamp: Date.now()
+      payload: {
+        delta,
+        userId,
+      },
+      timestamp: Date.now(),
     };
+
     socket.send(JSON.stringify(message));
   }
 };
+
 
 export const onDocumentChange = (callback) => {
   if (socket) {

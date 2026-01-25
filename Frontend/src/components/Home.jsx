@@ -9,6 +9,7 @@ const Home = () => {
   const quillRef = useRef(null);
   const [lastChange, setLastChange] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const USER_ID = 'User123'
 
   useEffect(() => {
     const socket = connectSocket('default-doc', 'User123');
@@ -21,21 +22,13 @@ const Home = () => {
       setIsConnected(false);
     };
 
-    onDocumentChange((delta) => {
-      console.log('Received delta from backend:', delta);
-      
-      if (quillRef.current) {
-        const selection = quillRef.current.getSelection();
-        
-        quillRef.current.updateContents(delta, 'api');
-        
-        if (selection) {
-          setTimeout(() => {
-            quillRef.current.setSelection(selection);
-          }, 0);
-        }
-      }
-    });
+    onDocumentChange((message) => {
+  if (message.sender?.user_id === USER_ID) return; 
+  
+  if (quillRef.current) {
+    quillRef.current.updateContents(message.payload.delta, 'api');
+  }
+});
 
     return () => {
       offDocumentChange();
@@ -44,10 +37,13 @@ const Home = () => {
   }, []);
 
   const handleContentChange = (changeData) => {
-    setLastChange(changeData);
-    console.log('Sending to backend:', changeData.delta);
+    // setLastChange(changeData);
+    // console.log('Sending to backend:', changeData.delta);
     
-    emitDocumentChange(changeData.delta);
+    emitDocumentChange({
+      delta: changeData.delta,
+      userId: USER_ID,
+    });
   };
 
   return (
