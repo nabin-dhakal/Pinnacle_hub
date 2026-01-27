@@ -1,23 +1,22 @@
 services:
   Redis:
     container_name: pinnacle_redis
-    build:
-      image: redis:8.4.0
+    image: redis:8.4.0
     ports:
       - "6379:6379"
   db:
     container_name: pinnacle_db
     image: postgres:18.1
     ports:
-      -"5432:5432"
+      - "5432:5432"
   backend:
-    container_name: backend
+    container_name: pinnacle_backend
     build: 
       context: ./Backend
     ports:
       - "8000:8000"
   frontend:
-    container_name: frontend
+    container_name: pinnacle_frontend
     build:
       context: ./Frontend
     ports:
