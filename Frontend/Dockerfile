@@ -2,6 +2,6 @@ FROM node:latest
 
 WORKDIR /frontend
 
-COPY . .
+COPY package.json package-lock.json* ./
 
-CMD [ "npm", "run", "dev", "--", "--host" ]
+RUN npm install

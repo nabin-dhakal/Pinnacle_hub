@@ -22,11 +22,33 @@ const Home = () => {
       setIsConnected(false);
     };
 
-    onDocumentChange((message) => {
-  if (message.sender?.user_id === USER_ID) return; 
+onDocumentChange((message) => {
   
-  if (quillRef.current) {
-    quillRef.current.updateContents(message.payload.delta, 'api');
+  if (message.type === 'init' && quillRef.current) {
+    console.log('Applying initial operations:', message.payload.operations);
+    const operations = message.payload.operations;
+    operations.forEach(op => {
+      console.log('Applying delta:', op.delta);
+      quillRef.current.updateContents(op.delta, 'api');
+    });
+    return;
+  }
+  
+  if (message.type === 'operation') {
+    console.log('Processing operation...');
+    
+    
+    if (quillRef.current && message.payload?.delta) {
+      console.log('Applying delta to Quill:', message.payload.delta);
+      try {
+        quillRef.current.updateContents(message.payload.delta, 'api');
+        console.log('Delta applied successfully');
+      } catch (error) {
+        console.error('Error applying delta:', error);
+      }
+    } else {
+      console.log('Missing quillRef or delta');
+    }
   }
 });
 
@@ -37,8 +59,7 @@ const Home = () => {
   }, []);
 
   const handleContentChange = (changeData) => {
-    // setLastChange(changeData);
-    // console.log('Sending to backend:', changeData.delta);
+
     
     emitDocumentChange({
       delta: changeData.delta,

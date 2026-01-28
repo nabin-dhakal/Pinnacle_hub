@@ -66,7 +66,7 @@ export const onDocumentChange = (callback) => {
         const message = JSON.parse(event.data);
         
         if (message.type === 'operation') {
-          callback(message.payload);
+          callback(message);
         }
       } catch (error) {
         console.error('Error parsing message:', error);

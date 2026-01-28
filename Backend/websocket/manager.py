@@ -5,6 +5,7 @@ class ConnectionManager:
     def __init__(self):
         self.activeconnections : Dict[str, Set[Any]] = {}
         self.connection_info : Dict[any, Dict] ={}
+        self.document_states : Dict[str, Any] = {}
         self._lock = asyncio.Lock()
     
     async def connect(self, websocket, document_id:str, user_info: Optional[Dict]= None):
@@ -78,3 +79,15 @@ class ConnectionManager:
                     if dead_conn in self.connection_info:
                         del self.connection_info[dead_conn]
         return successfull_sends
+    
+    async def get_document_state(self, document_id: str) -> list:
+
+        return self.document_states.get(document_id, [])
+
+    async def add_operation(self, document_id: str, operation: dict):
+        """Store an operation in document history"""
+        async with self._lock:
+            if document_id not in self.document_states:
+                self.document_states[document_id] = []
+            
+            self.document_states[document_id].append(operation)

@@ -5,8 +5,9 @@ from middleware.websocket_midddleware import WebSocketOriginMiddleware
 
 router = APIRouter()
 manager = ConnectionManager()
-origin_middleware = WebSocketOriginMiddleware()
-
+origin_middleware = WebSocketOriginMiddleware(
+       allowed_origins=["*"]  # For development
+   )
 async def get_user_info(websocket: WebSocket) -> dict:
     query_params = dict(websocket.query_params)
     username = query_params.get("username", "Anonymous")
@@ -18,6 +19,13 @@ async def get_user_info(websocket: WebSocket) -> dict:
     }
 
 async def handle_operation(message: dict, sender: WebSocket, document_id: str):
+    operation_data = {
+        "delta": message.get("payload").get("delta"),
+        "userId": message.get("payload").get("userId"),
+        "timestamp": message.get("timestamp")
+    }
+    await manager.add_operation(document_id, operation_data)
+
     broadcast_msg = {
         "type": "operation",
         "payload": message.get("payload"),
@@ -27,7 +35,7 @@ async def handle_operation(message: dict, sender: WebSocket, document_id: str):
     
     await manager.broadcast_to_document(
         document_id,
-        json.dumps(broadcast_msg),
+        broadcast_msg,
         exclude={sender}
     )
 
@@ -77,6 +85,16 @@ async def websocket_endpoint(websocket: WebSocket, document_id: str):
     user_info = await get_user_info(websocket)
     await manager.connect(websocket, document_id, user_info)
     
+    # Send initial document state
+    document_state = await manager.get_document_state(document_id)
+    if document_state:
+        await websocket.send_json({
+            "type": "init",
+            "payload": {
+                "operations": document_state
+            }
+        })
+    
     try:
         while True:
             data = await websocket.receive_text()
@@ -87,4 +105,4 @@ async def websocket_endpoint(websocket: WebSocket, document_id: str):
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
-        await manager.disconnect(websocket, document_id)
+        await manager.disconnect(websocket, document_id)   

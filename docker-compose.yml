@@ -1,24 +1,40 @@
 services:
-  Redis:
+  redis:
     container_name: pinnacle_redis
     image: redis:8.4.0
     ports:
       - "6379:6379"
+
   db:
     container_name: pinnacle_db
     image: postgres:18.1
     ports:
       - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+
   backend:
     container_name: pinnacle_backend
-    build: 
+    build:
       context: ./Backend
+    volumes:
+      - ./Backend:/backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
   frontend:
     container_name: pinnacle_frontend
     build:
       context: ./Frontend
+    volumes:
+      - ./Frontend:/frontend
+    command: npm run dev -- --host
     ports:
       - "5173:5173"
     depends_on:
