@@ -3,19 +3,26 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .config import settings
 import os
+import uuid
 
-engine = create_engine(
-    settings.DATABASE_URL,
+
+if settings.DEBUG:
+    engine = create_engine(
+        settings.database_url,
+        pool_size=10,
+        max_overflow=5,
+        pool_recycle=3600,
+        pool_pre_ping= True,
+        connect_args= {
+            "check_same_thread": False 
+        })
+else:
+    engine = create_engine(settings.database_url,
     pool_size=10,
     max_overflow=5,
     pool_recycle=3600,
-    pool_pre_ping= True,
-    connect_args= {
-        "application_name": "Pinnacle Hub",
-        "keepalives_idle":60,
-        "connect_timeout":15,
-        **({"check_same_thread":False} if "sqlite" in settings.DATABASE_URL else {})
-    })
+    pool_pre_ping=True
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -27,3 +34,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

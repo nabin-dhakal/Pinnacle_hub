@@ -1,14 +1,26 @@
 from fastapi import FastAPI
-from routers import documents
-from websocket.handlers import router as websocket_router
-import redis
+from core.database import engine, SessionLocal
+from models.user import User
+from core.config import settings
+from core.database import Base
 
 
-app = FastAPI()
+Base.metadata.create_all(bind=engine)
 
-app.include_router(documents.router)
-app.include_router(websocket_router)
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    docs_url="/docs" if settings.DEBUG else None,
+    redocs_url="/redocs" if settings.DEBUG else None,
+    openapi_url="/openapi.json" if settings.DEBUG else None,
+)
+
 
 @app.get("/")
 async def root():
-    return {"message": "Collaborative Docs API"}
+    return {
+        "message": "Collaborative Docs API",
+        "version": settings.VERSION,
+        "database": settings.DATABASE_URL,
+        "debug" : settings.DEBUG
+    }
