@@ -1,13 +1,13 @@
 
-const BASE_URL = "https://localhost:8000    "; 
+const BASE_URL = "http://localhost:8000"; 
 
-export const loginUser = async (email, password) => {
-  const response = await fetch(`${BASE_URL}/login`, {
+export const loginUser = async (username, password) => {
+  const response = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
 
   const data = await response.json();

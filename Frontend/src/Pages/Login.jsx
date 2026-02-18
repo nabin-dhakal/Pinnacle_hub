@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {loginUser } from "../services/api"
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -11,7 +11,7 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
+    if (!username || !password) {
       setError("Please fill in all fields");
       return;
     }
@@ -19,7 +19,7 @@ const Login = () => {
     try {
       setLoading(true);
 
-      const data = await loginUser(email , password);
+      const data = await loginUser(username , password);
 
       if (data.token) {
         localStorage.setItem("token", data.token);
@@ -53,11 +53,11 @@ const Login = () => {
                 Email
               </label>
               <input
-                type="email"
+                type="text"
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none transition"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
               />
             </div>
 

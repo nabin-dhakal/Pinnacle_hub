@@ -3,7 +3,12 @@ from core.database import engine, SessionLocal
 from models.user import User
 from core.config import settings
 from core.database import Base
+from routers import auth
+from fastapi.middleware.cors import CORSMiddleware
 
+origins = [
+    "http://localhost:5173"
+]
 
 Base.metadata.create_all(bind=engine)
 
@@ -15,6 +20,15 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.DEBUG else None,
 )
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(auth.router)
 
 @app.get("/")
 async def root():
