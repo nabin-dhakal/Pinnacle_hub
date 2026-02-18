@@ -22,6 +22,17 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class Token(BaseModel):
+class Access_Token(BaseModel):
     access_token: str
     token_type: str
+
+class Refresh_Token(BaseModel):
+    refresh_token: str
+
+class Logout_Token(BaseModel):
+    refresh_token: str
+
+class Token(BaseModel):
+    access_token : str
+    refresh_token : str
+    token_type : str

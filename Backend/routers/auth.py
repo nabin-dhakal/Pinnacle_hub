@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from core.database import get_db
-from core.security import get_hashed_password, create_access_token, verify_password
+from core.security import get_hashed_password, create_access_token, verify_password, create_refresh_token
 from models.user import User
-from schemas.user import UserCreate, UserLogin, UserResponse, Token
+from schemas.user import UserCreate, UserLogin, UserResponse, Access_Token, Refresh_Token, Logout_Token, Token
+from core.config import settings
+from jose import jwt
 
 router = APIRouter(prefix="/auth", tags=["Authentications"])
+BLACKLIST = set()
 
 @router.post("/register", response_model= Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -22,9 +25,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    token = create_access_token({"sub": new_user.username})
+    access_token = create_access_token({"sub": new_user.username})
+    refresh_token = create_refresh_token({"sub": new_user.username})
 
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": access_token,"refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.post("/login", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
@@ -34,6 +38,35 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(403, "User is inactive")
     
-    token = create_access_token({"sub": user.username})
+    access_token = create_access_token({"sub": user.username})
+    refresh_token = create_refresh_token({"sub": user.username})
 
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": access_token,"refresh_token": refresh_token, "token_type": "bearer"}
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(request: Refresh_Token):
+    try:
+        payload = jwt.decode(request.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username = payload.get("sub")
+
+        if request.refresh_token in BLACKLIST:
+            raise HTTPException(401, "Token has been revoked")
+
+        if not username:
+            raise HTTPException(401, "Invalid token")
+
+        new_access_token = create_access_token({"sub": username})
+        new_refresh_token = create_refresh_token({"sub": username})
+
+        return {
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer"
+        }
+    except jwt.JWTError:
+        raise HTTPException(401, "Invalid refresh token")
+
+@router.post("/logout", response_model=dict)
+def logout(request: Logout_Token):
+    BLACKLIST.add(request.refresh_token)
+    return {"msg": "Successfully logged out"}

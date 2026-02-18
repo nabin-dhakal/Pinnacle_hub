@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import {loginUser } from "../services/auth"
+import {loginUser, setToken } from "../services/auth"
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,11 +23,9 @@ const Login = () => {
 
       const data = await loginUser(username , password);
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
+      setToken(data);
+      navigate('/');  
 
-      console.log("Login success:", data);
     } catch (err) {
       setError(err.message || "Invalid credentials");
     } finally {

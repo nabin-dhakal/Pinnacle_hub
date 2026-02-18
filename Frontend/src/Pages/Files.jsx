@@ -3,9 +3,10 @@ import Tools from '../components/Tools';
 import File from '../components/File';
 import Profile from '../components/Profile';
 import Text from '../components/Text';
+import {logout} from '../services/auth'
 import { connectSocket, disconnectSocket, emitDocumentChange, onDocumentChange, offDocumentChange } from '../services/socket';
 
-const Home = () => {
+const Files = () => {
   const quillRef = useRef(null);
   const [lastChange, setLastChange] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -72,6 +73,7 @@ onDocumentChange((message) => {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <File />
+
           
           <div className="flex items-center gap-4">
             <Tools quillRef={quillRef} />
@@ -83,7 +85,6 @@ onDocumentChange((message) => {
               </span>
             </div>
           </div>
-          
           <Profile />
         </div>
       </div>
@@ -110,4 +111,4 @@ onDocumentChange((message) => {
   );
 };
 
-export default Home;
+export default File;
