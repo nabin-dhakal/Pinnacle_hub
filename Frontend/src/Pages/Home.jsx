@@ -1,8 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
-import Tools from './Tools';
-import File from './File';
-import Profile from './Profile';
-import Text from './Text';
+import Tools from '../components/Tools';
+import File from '../components/File';
+import Profile from '../components/Profile';
+import Text from '../components/Text';
 import { connectSocket, disconnectSocket, emitDocumentChange, onDocumentChange, offDocumentChange } from '../services/socket';
 
 const Home = () => {

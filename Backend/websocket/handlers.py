@@ -6,7 +6,7 @@ from middleware.websocket_midddleware import WebSocketOriginMiddleware
 router = APIRouter()
 manager = ConnectionManager()
 origin_middleware = WebSocketOriginMiddleware(
-       allowed_origins=["*"]  # For development
+       allowed_origins=["*"]
    )
 async def get_user_info(websocket: WebSocket) -> dict:
     query_params = dict(websocket.query_params)
@@ -85,7 +85,6 @@ async def websocket_endpoint(websocket: WebSocket, document_id: str):
     user_info = await get_user_info(websocket)
     await manager.connect(websocket, document_id, user_info)
     
-    # Send initial document state
     document_state = await manager.get_document_state(document_id)
     if document_state:
         await websocket.send_json({

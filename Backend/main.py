@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from routers import documents
 from websocket.handlers import router as websocket_router
 import redis
+
+
 app = FastAPI()
 
 app.include_router(documents.router)
