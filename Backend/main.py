@@ -3,14 +3,16 @@ from core.database import engine, SessionLocal
 from models.user import User
 from core.config import settings
 from core.database import Base
-from routers import auth
+from routers import auth, document
 from fastapi.middleware.cors import CORSMiddleware
 
 origins = [
     "http://localhost:5173"
 ]
 
+# Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -29,6 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(auth.router)
+app.include_router(document.router)
 
 @app.get("/")
 async def root():

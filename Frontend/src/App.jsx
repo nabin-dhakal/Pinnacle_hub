@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Files from "./Pages/Files";
 import HomePage from "./Pages/HomePage";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import NotFound from "./Pages/NotFound";
 import PrivateRoute from "./Pages/PrivateRoute";
 import {logout} from "./services/auth"
+import DocumentPage from "./Pages/DocumentPage";
 
 function App() {
 
@@ -24,10 +24,10 @@ function App() {
         />
         
         <Route
-          path="/files"
+          path="/docs/:id"
           element={
             <PrivateRoute>
-              <Files />
+              < DocumentPage />
             </PrivateRoute>
           }
         />
