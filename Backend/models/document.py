@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Enum, ForeignKey, JSON, DateTime, UniqueConstraint
+from sqlalchemy import Column, String, Enum, ForeignKey, JSON, DateTime, UniqueConstraint, Integer
 from sqlalchemy.orm import relationship
 from core.database import Base
 import uuid
@@ -31,7 +31,7 @@ class File(Base):
     
     owner = relationship("User", foreign_keys=[owner_id])
     parent = relationship("File", remote_side=[id], foreign_keys=[parent_id])
-    children = relationship("File", foreign_keys=[parent_id])
+    children = relationship("File", foreign_keys=[parent_id], overlaps="parent")
     permissions = relationship("FilePermission", back_populates="file", cascade="all, delete-orphan")
     
     __table_args__ = (
@@ -55,9 +55,10 @@ class FileChange(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     file_id = Column(String(36), ForeignKey("files.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"),nullable=False)
     operations = Column(JSON)
     version = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     file = relationship("File", back_populates="changes")
-    user = relationship("Users")
+    user = relationship("User" , foreign_keys=[user_id])

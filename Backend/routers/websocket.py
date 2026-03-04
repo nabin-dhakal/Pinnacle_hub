@@ -18,14 +18,52 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
         while True:
             message = await websocket.receive_json()
             message_type = message.get("type")
+            document_id = message.get("document_id")
+            data = message.get("data", {})
             
             if message_type == "subscribe":
-                document_id = message.get("document_id")
                 await manager.subscribe_to_document(user_id, document_id)
+                await manager.message_handler.handle_request_document(
+                    user_id, document_id, data
+                )
                 
             elif message_type == "unsubscribe":
-                document_id = message.get("document_id")
                 await manager.unsubscribe_from_document(user_id, document_id)
+                
+            elif message_type == "edit":
+                await manager.message_handler.handle_edit(
+                    user_id, document_id, data
+                )
+                
+            elif message_type == "cursor":
+                await manager.message_handler.handle_cursor(
+                    user_id, document_id, data
+                )
+                
+            elif message_type == "selection":
+                await manager.message_handler.handle_selection(
+                    user_id, document_id, data
+                )
+                
+            elif message_type == "comment":
+                await manager.message_handler.handle_comment(
+                    user_id, document_id, data
+                )
+                
+            elif message_type == "presence":
+                await manager.message_handler.handle_presence(
+                    user_id, document_id, data
+                )
+                
+            elif message_type == "document_save":
+                await manager.message_handler.handle_document_save(
+                    user_id, document_id, data
+                )
+                
+            elif message_type == "request_document":
+                await manager.message_handler.handle_request_document(
+                    user_id, document_id, data
+                )
                 
             else:
                 await manager.handle_message(user_id, message)

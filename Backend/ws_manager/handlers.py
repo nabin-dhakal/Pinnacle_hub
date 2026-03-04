@@ -1,21 +1,42 @@
-import json
+from services.document_service import FileService
+from core.database import SessionLocal
 
 class MessageHandler:
     def __init__(self, manager):
         self.manager = manager
     
     async def handle_edit(self, user_id: str, document_id: str, data: dict):
-        await self.manager.broadcast_to_document(
-            document_id,
-            {
-                "type": "edit",
-                "user_id": user_id,
-                "content": data.get("content"),
-                "position": data.get("position"),
-                "timestamp": data.get("timestamp")
-            },
-            exclude_user=user_id
-        )
+        db = SessionLocal()
+        try:
+            service = FileService(db)
+            result = service.apply_changes(
+                document_id,
+                data.get("operations", []),
+                data.get("version", 1),
+                user_id
+            )
+            
+            await self.manager.broadcast_to_document(
+                document_id,
+                {
+                    "type": "edit",
+                    "user_id": user_id,
+                    "operations": data.get("operations"),
+                    "version": result["version"],
+                    "timestamp": data.get("timestamp")
+                },
+                exclude_user=user_id
+            )
+        except Exception as e:
+            await self.manager.send_to_user(
+                user_id,
+                {
+                    "type": "error",
+                    "message": str(e)
+                }
+            )
+        finally:
+            db.close()
     
     async def handle_cursor(self, user_id: str, document_id: str, data: dict):
         await self.manager.broadcast_to_document(
@@ -63,7 +84,6 @@ class MessageHandler:
         )
     
     async def handle_document_save(self, user_id: str, document_id: str, data: dict):
-        
         await self.manager.broadcast_to_document(
             document_id,
             {
@@ -72,3 +92,20 @@ class MessageHandler:
                 "timestamp": data.get("timestamp")
             }
         )
+    
+    async def handle_request_document(self, user_id: str, document_id: str, data: dict):
+        db = SessionLocal()
+        try:
+            service = FileService(db)
+            file = service.get(document_id, user_id)
+            
+            await self.manager.send_to_user(
+                user_id,
+                {
+                    "type": "document_state",
+                    "content": file.content,
+                    "version": file.version
+                }
+            )
+        finally:
+            db.close()
