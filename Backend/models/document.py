@@ -4,6 +4,7 @@ from core.database import Base
 import uuid
 from datetime import datetime, timezone
 import enum
+from .user import User
 
 class ItemType(enum.Enum):
     FILE = "FILE"
@@ -25,6 +26,8 @@ class File(Base):
     content = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    version = Column(Integer, default=1)
+    changes = relationship("FileChange", back_populates="file", cascade="all, delete-orphan")    
     
     owner = relationship("User", foreign_keys=[owner_id])
     parent = relationship("File", remote_side=[id], foreign_keys=[parent_id])
@@ -46,3 +49,15 @@ class FilePermission(Base):
     
     file = relationship("File", back_populates="permissions")
     user = relationship("User")
+
+class FileChange(Base):
+    __tablename__ = "filechanges"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    file_id = Column(String(36), ForeignKey("files.id"), nullable=False)
+    operations = Column(JSON)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+
+    file = relationship("File", back_populates="changes")
+    user = relationship("Users")

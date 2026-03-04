@@ -5,6 +5,8 @@ from core.config import settings
 from core.database import Base
 from routers import auth, document, websocket
 from fastapi.middleware.cors import CORSMiddleware
+from sqladmin import Admin
+from core.admin import UserAdmin
 
 origins = [
     "http://localhost:5173"
@@ -22,7 +24,6 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.DEBUG else None,
 )
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -30,6 +31,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+admin = Admin(app   , engine)
+admin.add_view(UserAdmin)
+
+
 app.include_router(auth.router)
 app.include_router(document.router)
 app.include_router(websocket.router)

@@ -9,7 +9,7 @@ const DocumentPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const [document, setDocument] = useState(null);
+  const [doc, setDocs] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
