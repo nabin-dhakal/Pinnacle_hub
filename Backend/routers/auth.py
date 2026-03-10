@@ -15,25 +15,25 @@ from schemas.user import UserCreate, UserLogin, UserResponse, Access_Token, Refr
 router = APIRouter(prefix="/auth", tags=["Authentications"])
 BLACKLIST = set()
 
-@router.post("/register", response_model= Token)
+@router.post("/register", response_model=Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter((User.username == user.username) | (User.email == user.email)).first()
     if existing:
         raise HTTPException(400, "Username or email already exist")
-    new_user =  User(
-        username = user.username,
-        email = user.email,
-        fullname = user.fullname,
-        hashed_password = get_hashed_password(user.password)
-        )
+    new_user = User(
+        username=user.username,
+        email=user.email,
+        fullname=user.fullname,
+        hashed_password=get_hashed_password(user.password)
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    access_token = create_access_token({"sub": new_user.username})
-    refresh_token = create_refresh_token({"sub": new_user.username})
+    access_token = create_access_token({"sub": new_user.username, "user_id": str(new_user.id)})
+    refresh_token = create_refresh_token({"sub": new_user.username, "user_id": str(new_user.id)})
 
-    return {"access_token": access_token,"refresh_token": refresh_token, "token_type": "bearer"}
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.post("/login", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
@@ -42,26 +42,27 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(401, "Invalid credentials")
     if not user.is_active:
         raise HTTPException(403, "User is inactive")
-    
-    access_token = create_access_token({"sub": user.username})
-    refresh_token = create_refresh_token({"sub": user.username})
 
-    return {"access_token": access_token,"refresh_token": refresh_token, "token_type": "bearer"}
+    access_token = create_access_token({"sub": user.username, "user_id": str(user.id)})
+    refresh_token = create_refresh_token({"sub": user.username, "user_id": str(user.id)})
+
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(request: Refresh_Token):
     try:
         payload = jwt.decode(request.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username = payload.get("sub")
+        user_id = payload.get("user_id")
 
         if request.refresh_token in BLACKLIST:
             raise HTTPException(401, "Token has been revoked")
 
-        if not username:
+        if not username or not user_id:
             raise HTTPException(401, "Invalid token")
 
-        new_access_token = create_access_token({"sub": username})
-        new_refresh_token = create_refresh_token({"sub": username})
+        new_access_token = create_access_token({"sub": username, "user_id": user_id})
+        new_refresh_token = create_refresh_token({"sub": username, "user_id": user_id})
 
         return {
             "access_token": new_access_token,
@@ -88,7 +89,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
@@ -97,12 +98,12 @@ async def get_current_user(
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.username == token_data.username).first()
     if user is None:
         raise credentials_exception
-    
+
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-    
+
     return user

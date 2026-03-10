@@ -5,6 +5,8 @@ from schemas.document import FileCreate, FileUpdate, Operation
 from fastapi import HTTPException
 from datetime import datetime
 import uuid
+import copy
+
 
 class FileService:
     def __init__(self, db: Session):
@@ -28,6 +30,8 @@ class FileService:
         )
         
         self.db.add(new_file)
+        self.db.commit()
+        self.db.flush()
         
         owner_permission = FilePermission(
             file_id=new_file.id,
@@ -86,21 +90,19 @@ class FileService:
             return True
         
         permission = self.db.query(FilePermission).filter(
-            and_(
-                FilePermission.file_id == file_id,
-                FilePermission.user_id == user_id
-            )
+            FilePermission.file_id == file_id,
+            FilePermission.user_id == user_id
         ).first()
-        
+
         if not permission:
             return False
-        
+
         permission_levels = {
             Permission.VIEW: 1,
             Permission.SUGGEST: 2,
             Permission.EDIT: 3
         }
-        
+
         return permission_levels[permission.permission] >= permission_levels[required]
     
     def share(self, file_id: str, target_user_id: str, permission: Permission, owner_id: str) -> FilePermission:
@@ -144,8 +146,7 @@ class FileService:
         if base_version != file.version:
             operations = self.transform_operations(operations, file.version, base_version, file_id)
         
-        new_content = self.apply_operations_to_content(file.content or {"ops": []}, operations)
-        
+        new_content = self.apply_operations_to_content(copy.deepcopy(file.content or {"ops": []}), operations)        
         file.content = new_content
         file.version += 1
         file.updated_at = datetime.now()

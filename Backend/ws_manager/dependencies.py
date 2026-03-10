@@ -10,7 +10,7 @@ async def get_user_from_token(token: str):
             algorithms=[settings.ALGORITHM]
         )
         print("Decoded payload:", payload) 
-        return payload.get("sub")
+        return payload.get("user_id")
     except Exception as e:
         print("JWT decode error:", str(e))  
         return None

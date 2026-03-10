@@ -6,13 +6,13 @@ from core.database import Base
 from routers import auth, document, websocket
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
-from core.admin import UserAdmin
+from core.admin import UserAdmin, DocsAdmin
 
 origins = [
     "http://localhost:5173"
 ]
 
-Base.metadata.drop_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)   
 Base.metadata.create_all(bind=engine)
 
 
@@ -34,6 +34,7 @@ app.add_middleware(
 
 admin = Admin(app   , engine)
 admin.add_view(UserAdmin)
+admin.add_view(DocsAdmin)
 
 
 app.include_router(auth.router)
