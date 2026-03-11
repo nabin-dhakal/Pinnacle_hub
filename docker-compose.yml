@@ -5,16 +5,6 @@ services:
     ports:
       - "6379:6379"
 
-  db:
-    container_name: pinnacle_db
-    image: postgres:18.1
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-
   backend:
     container_name: pinnacle_backend
     build:
@@ -25,7 +15,6 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
       - redis
 
   frontend:
