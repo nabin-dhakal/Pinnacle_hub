@@ -61,7 +61,7 @@ const DocumentPage = () => {
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (wsRef.current) {
-        wsRef.current.onclose = null; 
+        wsRef.current.onclose = null;
         wsRef.current.close();
         wsRef.current = null;
       }
@@ -105,6 +105,8 @@ const DocumentPage = () => {
           .map((op) => (typeof op.insert === "string" ? op.insert : ""))
           .join("");
         setContent(text);
+      } else if (data.content?.text?.text) {
+        setContent(data.content.text.text);
       }
 
       setVersion(data.version || 1);
@@ -149,11 +151,15 @@ const DocumentPage = () => {
 
         switch (data.type) {
           case "document_state":
-            if (data.content?.ops) {
+            if (typeof data.content === "string") {
+              setContent(data.content);
+            } else if (data.content?.ops) {
               const text = data.content.ops
                 .map((op) => (typeof op.insert === "string" ? op.insert : ""))
                 .join("");
               setContent(text);
+            } else if (data.content?.text?.text) {
+              setContent(data.content.text.text);
             }
             setVersion(data.version || 1);
             break;
@@ -167,12 +173,13 @@ const DocumentPage = () => {
             }
             break;
 
-          case 'user_joined':
-            setActiveUsers(prev =>
-              prev.some(u => u.id === data.user_id)
+          case "user_joined":
+            setActiveUsers((prev) =>
+              prev.some((u) => u.id === data.user_id)
                 ? prev
                 : [...prev, { id: data.user_id }]
             );
+            break;
 
           case "user_left":
             setActiveUsers((prev) =>
@@ -189,11 +196,23 @@ const DocumentPage = () => {
             break;
 
           case "document_saved":
-            console.log("Document auto-saved at:", data.timestamp);
+            if (data.content) {
+              if (typeof data.content === "string") {
+                setContent(data.content);
+              } else if (data.content?.ops) {
+                const text = data.content.ops
+                  .map((op) => (typeof op.insert === "string" ? op.insert : ""))
+                  .join("");
+                setContent(text);
+              } else if (data.content?.text?.text) {
+                setContent(data.content.text.text);
+              }
+              setVersion(data.version || versionRef.current);
+            }
             break;
 
           case "error":
-            console.log('ws error from server', data)
+            console.log("ws error from server", data);
             setError(data.message);
             break;
 
@@ -203,13 +222,11 @@ const DocumentPage = () => {
       };
 
       ws.onerror = (error) => {
-        setError("Real-time connection lost...")
         console.error("WebSocket error:", error);
         setConnectionStatus("disconnected");
         setError(
           "Real-time connection lost. Changes will be saved when connection resumes."
         );
-
       };
 
       ws.onclose = () => {
@@ -249,7 +266,6 @@ const DocumentPage = () => {
 
     setContent(currentContent);
   };
-
 
   const createOperation = (oldText, newText) => {
     if (oldText === newText) return null;
@@ -299,7 +315,7 @@ const DocumentPage = () => {
     const operationOrArray = createOperation(oldContent, newContent);
 
     if (operationOrArray) {
-      const operations = [].concat(operationOrArray); 
+      const operations = [].concat(operationOrArray);
       setContent(newContent);
 
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -334,7 +350,7 @@ const DocumentPage = () => {
       console.log("Offline: changes will be saved when online");
       return;
     }
-    setError("Auto-save failed..")
+
     try {
       const token = getToken();
 
@@ -346,7 +362,7 @@ const DocumentPage = () => {
         },
         body: JSON.stringify({
           content: {
-            text: {text : contentToSave,}
+            text: { text: contentToSave },
           },
         }),
       });
@@ -385,6 +401,7 @@ const DocumentPage = () => {
   };
 
   const handleShare = async (userId, permission) => {
+
     try {
       const token = getToken();
 
@@ -419,9 +436,9 @@ const DocumentPage = () => {
     );
   }
 
- 
   const currentUserId = getCurrentUserId();
   const isOwner = doc?.owner_id === currentUserId;
+
   return (
     <div className="h-screen flex flex-col">
       <div className="border-b p-4">
@@ -528,9 +545,9 @@ const DocumentPage = () => {
               id="shareUserId"
             />
             <select className="p-2 border rounded" id="sharePermission">
-              <option value="view">View</option>
-              <option value="suggest">Suggest</option>
-              <option value="edit">Edit</option>
+              <option value="VIEW">View</option>
+              <option value="SUGGEST">Suggest</option>
+              <option value="EDIT">Edit</option>
             </select>
             <button
               onClick={() => {

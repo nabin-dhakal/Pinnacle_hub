@@ -8,9 +8,9 @@ class ItemType(str, Enum):
     FOLDER = "FOLDER"
 
 class Permission(str, Enum):
-    VIEW = "view"
-    SUGGEST = "suggest"
-    EDIT = "edit"
+    VIEW = "VIEW"
+    SUGGEST = "SUGGEST"
+    EDIT = "EDIT"
 
 class Operation(BaseModel):
     type: Literal["insert", "delete"]
@@ -32,7 +32,6 @@ class FileUpdate(BaseModel):
     parent_id: Optional[str] = None
 
 class FilePermissionBase(BaseModel):
-    file_id: str
     user_id: str
     permission: Permission
 

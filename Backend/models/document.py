@@ -11,9 +11,9 @@ class ItemType(enum.Enum):
     FOLDER = "FOLDER"
 
 class Permission(enum.Enum):
-    VIEW = "view"
-    SUGGEST = "suggest" 
-    EDIT = "edit"
+    VIEW = "VIEW"
+    SUGGEST = "SUGGEST" 
+    EDIT = "EDIT"
 
 class File(Base):
     __tablename__ = "files"
