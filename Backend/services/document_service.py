@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from models.document import File, FileChange, FilePermission, Permission, ItemType
+from models.user import User
 from schemas.document import FileCreate, FileUpdate, Operation
 from fastapi import HTTPException
 from datetime import datetime
@@ -105,16 +106,20 @@ class FileService:
 
         return permission_levels[permission.permission] >= permission_levels[required]
     
-    def share(self, file_id: str, target_user_id: str, permission: Permission, owner_id: str) -> FilePermission:
+    def share(self, file_id: str, target_username: str, permission: Permission, owner_id: str) -> FilePermission:
         file = self.get(file_id, owner_id)
         
         if file.owner_id != owner_id:
             raise HTTPException(status_code=403, detail="Only owner can share")
         
+        user = self.db.query(User).filter(User.username == target_username).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         existing = self.db.query(FilePermission).filter(
             and_(
                 FilePermission.file_id == file_id,
-                FilePermission.user_id == target_user_id
+                FilePermission.user_id == user.id
             )
         ).first()
         
@@ -124,7 +129,7 @@ class FileService:
         else:
             perm = FilePermission(
                 file_id=file_id,
-                user_id=target_user_id,
+                user_id=user.id,
                 permission=permission
             )
             self.db.add(perm)

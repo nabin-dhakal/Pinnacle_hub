@@ -37,6 +37,8 @@ class File(Base):
     __table_args__ = (
         UniqueConstraint('name', 'parent_id', 'owner_id', name='unique_name_per_location'),
     )
+    def __str__(self):
+        return self.name
 
 class FilePermission(Base):
     __tablename__ = "file_permissions"
@@ -49,6 +51,8 @@ class FilePermission(Base):
     
     file = relationship("File", back_populates="permissions")
     user = relationship("User")
+    def __str__(self):
+        return f"{self.user_id}:{self.permission.value}"
 
 class FileChange(Base):
     __tablename__ = "filechanges"
@@ -62,3 +66,5 @@ class FileChange(Base):
 
     file = relationship("File", back_populates="changes")
     user = relationship("User" , foreign_keys=[user_id])
+    def __str__(self):
+        return f"v{self.version}"
