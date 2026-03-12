@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
-from models.document import File, FilePermission, Permission, ItemType
+from models.document import File, FilePermission, Permission as FilePermission, ItemType
 from models.user import User
 from schemas.document import FileCreate, FileUpdate, FileResponse, FilePermissionCreate, FilePermissionResponse
 from routers.auth import get_current_user
@@ -56,7 +56,7 @@ def share_file(
     current_user: User = Depends(get_current_user)
 ):
     service = FileService(db)
-    return service.share(file_id, permission_data.user_id, permission_data.permission, current_user.id)
+    return service.share(file_id, permission_data.user_id, FilePermission(permission_data.permission), current_user.id)
 
 @router.get("", response_model=List[FileResponse])
 def get_user_files(
