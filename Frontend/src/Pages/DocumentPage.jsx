@@ -400,7 +400,7 @@ const DocumentPage = () => {
     setSaving(false);
   };
 
-  const handleShare = async (userId, permission) => {
+  const handleShare = async (Username, permission) => {
 
     try {
       const token = getToken();
@@ -412,7 +412,7 @@ const DocumentPage = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user_id: userId,
+          username: Username,
           permission: permission,
         }),
       });
@@ -540,9 +540,9 @@ const DocumentPage = () => {
           <div className="flex space-x-2">
             <input
               type="text"
-              placeholder="User ID"
+              placeholder="Username"
               className="flex-1 p-2 border rounded"
-              id="shareUserId"
+              id="Username"
             />
             <select className="p-2 border rounded" id="sharePermission">
               <option value="VIEW">View</option>
@@ -551,10 +551,10 @@ const DocumentPage = () => {
             </select>
             <button
               onClick={() => {
-                const userId = document.getElementById("shareUserId").value;
+                const Username = document.getElementById("Username").value;
                 const permission =
                   document.getElementById("sharePermission").value;
-                if (userId) handleShare(userId, permission);
+                if (Username) handleShare(Username, permission);
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >

@@ -32,18 +32,23 @@ class FileUpdate(BaseModel):
     parent_id: Optional[str] = None
 
 class FilePermissionBase(BaseModel):
-    user_id: str
+    username: str
     permission: Permission
 
-class FilePermissionCreate(FilePermissionBase):
-    pass
+class FilePermissionCreate(BaseModel):
+    username: str
+    permission: Permission
 
-class FilePermissionResponse(FilePermissionBase):
+class FilePermissionResponse(BaseModel):
     id: str
+    file_id: str
+    user_id: str
+    permission: str
     granted_at: datetime
-    
+
     class Config:
         from_attributes = True
+        use_enum_values = True
 
 class FileResponse(FileBase):
     id: str

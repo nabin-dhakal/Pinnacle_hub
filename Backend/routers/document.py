@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
-from models.document import File, FilePermission, Permission as FilePermission, ItemType
+from models.document import File, FilePermission, Permission as ModelPermission, ItemType
 from models.user import User
 from schemas.document import FileCreate, FileUpdate, FileResponse, FilePermissionCreate, FilePermissionResponse
 from routers.auth import get_current_user
 from services.document_service import FileService
 from typing import List
+from sqlalchemy import or_
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
@@ -16,8 +17,7 @@ def create_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    return service.create(file_data, current_user.id)
+    return FileService(db).create(file_data, current_user.id)
 
 @router.get("/{file_id}", response_model=FileResponse)
 def get_file(
@@ -25,8 +25,7 @@ def get_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    return service.get(file_id, current_user.id)
+    return FileService(db).get(file_id, current_user.id)
 
 @router.put("/{file_id}", response_model=FileResponse)
 def update_file(
@@ -35,8 +34,7 @@ def update_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    return service.update_metadata(file_id, file_data, current_user.id)
+    return FileService(db).update_metadata(file_id, file_data, current_user.id)
 
 @router.delete("/{file_id}")
 def delete_file(
@@ -44,8 +42,7 @@ def delete_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    service.delete(file_id, current_user.id)
+    FileService(db).delete(file_id, current_user.id)
     return {"message": "File deleted successfully"}
 
 @router.post("/{file_id}/share", response_model=FilePermissionResponse)
@@ -55,20 +52,21 @@ def share_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    return service.share(file_id, permission_data.user_id, FilePermission(permission_data.permission), current_user.id)
+    return FileService(db).share(file_id, permission_data.username, ModelPermission(permission_data.permission.value), current_user.id)
 
 @router.get("", response_model=List[FileResponse])
 def get_user_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    files = db.query(File).filter(
-        File.owner_id == current_user.id,
+    return db.query(File).filter(
         File.type == ItemType.FILE
+    ).filter(
+        or_(
+            File.owner_id == current_user.id,
+            File.permissions.any(FilePermission.user_id == current_user.id)
+        )
     ).all()
-    return files
 
 @router.get("/{file_id}/history")
 def get_file_history(
@@ -76,8 +74,7 @@ def get_file_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    return service.get_history(file_id, current_user.id)
+    return FileService(db).get_history(file_id, current_user.id)
 
 @router.post("/{file_id}/revert/{version}")
 def revert_file(
@@ -86,6 +83,5 @@ def revert_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    service = FileService(db)
-    file = service.revert_to_version(file_id, version, current_user.id)
+    file = FileService(db).revert_to_version(file_id, version, current_user.id)
     return {"message": f"Reverted to version {version}", "current_version": file.version}
