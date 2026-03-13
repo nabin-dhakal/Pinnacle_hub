@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models.document import File, FilePermission, Permission as ModelPermission, ItemType
@@ -6,7 +6,7 @@ from models.user import User
 from schemas.document import FileCreate, FileUpdate, FileResponse, FilePermissionCreate, FilePermissionResponse
 from routers.auth import get_current_user
 from services.document_service import FileService
-from typing import List
+from typing import List, Optional
 from sqlalchemy import or_
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -56,10 +56,13 @@ def share_file(
 
 @router.get("", response_model=List[FileResponse])
 def get_user_files(
+    parent_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return db.query(File).filter(
+    file_ids = set()
+    
+    files = db.query(File).filter(
         File.type.in_([ItemType.FILE, ItemType.FOLDER])
     ).filter(
         or_(
@@ -67,6 +70,25 @@ def get_user_files(
             File.permissions.any(FilePermission.user_id == current_user.id)
         )
     ).all()
+    
+    for file in files:
+        file_ids.add(file.id)
+    
+    folders = [f for f in files if f.type == ItemType.FOLDER]
+    for folder in folders:
+        children = db.query(File).filter(File.parent_id == folder.id).all()
+        for child in children:
+            file_ids.add(child.id)
+    
+    query = db.query(File).filter(File.id.in_(file_ids))
+    
+    if parent_id is not None:
+        if parent_id == "null":
+            query = query.filter(File.parent_id.is_(None))
+        else:
+            query = query.filter(File.parent_id == parent_id)
+    
+    return query.all()
 
 @router.get("/{file_id}/history")
 def get_file_history(
