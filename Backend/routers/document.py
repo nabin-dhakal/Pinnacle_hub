@@ -25,7 +25,36 @@ def get_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return FileService(db).get(file_id, current_user.id)
+    file = db.query(File).filter(File.id == file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    if file.owner_id == current_user.id:
+        return file
+    
+    permission = db.query(FilePermission).filter(
+        FilePermission.file_id == file_id,
+        FilePermission.user_id == current_user.id
+    ).first()
+    
+    if permission:
+        return file
+    
+    parent = file
+    while parent.parent_id:
+        parent = db.query(File).filter(File.id == parent.parent_id).first()
+        if not parent:
+            break
+        if parent.owner_id == current_user.id:
+            return file
+        parent_permission = db.query(FilePermission).filter(
+            FilePermission.file_id == parent.id,
+            FilePermission.user_id == current_user.id
+        ).first()
+        if parent_permission:
+            return file
+    
+    raise HTTPException(status_code=403, detail="Not authorized to access this file")
 
 @router.put("/{file_id}", response_model=FileResponse)
 def update_file(
@@ -60,35 +89,55 @@ def get_user_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    file_ids = set()
-    
-    files = db.query(File).filter(
-        File.type.in_([ItemType.FILE, ItemType.FOLDER])
-    ).filter(
+    accessible_folders = db.query(File.id).filter(
+        File.type == ItemType.FOLDER,
         or_(
             File.owner_id == current_user.id,
             File.permissions.any(FilePermission.user_id == current_user.id)
         )
     ).all()
     
-    for file in files:
-        file_ids.add(file.id)
+    accessible_folder_ids = [f[0] for f in accessible_folders]
     
-    folders = [f for f in files if f.type == ItemType.FOLDER]
-    for folder in folders:
-        children = db.query(File).filter(File.parent_id == folder.id).all()
-        for child in children:
-            file_ids.add(child.id)
+    all_accessible_folder_ids = set(accessible_folder_ids)
+    for folder_id in accessible_folder_ids:
+        descendants = db.query(File.id).filter(
+            File.parent_id.in_(list(all_accessible_folder_ids))
+        ).all()
+        for desc_id in descendants:
+            all_accessible_folder_ids.add(desc_id[0])
     
-    query = db.query(File).filter(File.id.in_(file_ids))
+    direct_folder_access = db.query(File).filter(
+        File.type == ItemType.FOLDER,
+        or_(
+            File.owner_id == current_user.id,
+            File.permissions.any(FilePermission.user_id == current_user.id)
+        )
+    )
+    
+    direct_file_access = db.query(File).filter(
+        File.type == ItemType.FILE,
+        or_(
+            File.owner_id == current_user.id,
+            File.permissions.any(FilePermission.user_id == current_user.id)
+        )
+    )
+    
+    inherited_file_access = db.query(File).filter(
+        File.type == ItemType.FILE,
+        File.parent_id.in_(all_accessible_folder_ids)
+    )
+    
+    all_files_query = direct_folder_access.union(direct_file_access).union(inherited_file_access).subquery()
+    result = db.query(File).select_entity_from(all_files_query)
     
     if parent_id is not None:
         if parent_id == "null":
-            query = query.filter(File.parent_id.is_(None))
+            result = result.filter(File.parent_id.is_(None))
         else:
-            query = query.filter(File.parent_id == parent_id)
+            result = result.filter(File.parent_id == parent_id)
     
-    return query.all()
+    return result.all()
 
 @router.get("/{file_id}/history")
 def get_file_history(
