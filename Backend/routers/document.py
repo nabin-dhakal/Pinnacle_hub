@@ -60,7 +60,7 @@ def get_user_files(
     current_user: User = Depends(get_current_user)
 ):
     return db.query(File).filter(
-        File.type == ItemType.FILE
+        File.type.in_([ItemType.FILE, ItemType.FOLDER])
     ).filter(
         or_(
             File.owner_id == current_user.id,
