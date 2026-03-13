@@ -5,23 +5,51 @@ const Register = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [passwordErrors, setPasswordErrors] = useState([]);
+
+  const validatePassword = (pass) => {
+    const errors = [];
+    if (pass.length < 8) errors.push("At least 8 characters");
+    if (!/[A-Z]/.test(pass)) errors.push("One uppercase letter");
+    if (!/[a-z]/.test(pass)) errors.push("One lowercase letter");
+    if (!/[0-9]/.test(pass)) errors.push("One number");
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pass)) errors.push("One special character");
+    return errors;
+  };
+
+  const handlePasswordChange = (e) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    setPasswordErrors(validatePassword(newPassword));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password || !confirmPassword) {
       setError("Please fill in all fields");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (passwordErrors.length > 0) {
+      setError("Please meet all password requirements");
       return;
     }
 
     try {
       setLoading(true);
-      const data = await registerUser({ username, email, password });
+      const data = await registerUser({ username, email, password, confirm_password: confirmPassword });
 
       if (data.access_token) {
         localStorage.setItem("token", data.access_token);
@@ -126,10 +154,47 @@ const Register = () => {
                   type="password"
                   className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition-all duration-300"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handlePasswordChange}
                   placeholder="••••••••"
                 />
               </div>
+              {passwordErrors.length > 0 && (
+                <div className="mt-2 text-sm text-red-600">
+                  <p className="font-medium">Password must contain:</p>
+                  <ul className="list-disc list-inside">
+                    {passwordErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <input
+                  type="password"
+                  className={`w-full pl-10 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition-all duration-300 ${
+                    confirmPassword && password !== confirmPassword
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-200"
+                  }`}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-sm text-red-600">Passwords do not match</p>
+              )}
             </div>
 
             <button
@@ -183,7 +248,6 @@ const Register = () => {
               </svg>
               <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">Google</span>
             </button>
-            
           </div>
 
           <div className="text-center">
