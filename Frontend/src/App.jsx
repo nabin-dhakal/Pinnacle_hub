@@ -4,7 +4,7 @@ import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import NotFound from "./Pages/NotFound";
 import PrivateRoute from "./Pages/PrivateRoute";
-import {logout} from "./services/auth"
+import OAuthCallback from "./Pages/OAuthCallback";
 import DocumentPage from "./Pages/DocumentPage";
 
 function App() {
@@ -21,6 +21,11 @@ function App() {
               <HomePage />
             </PrivateRoute>
           }
+        />
+
+        <Route
+        path="/oauth-callback" 
+        element={<OAuthCallback />} 
         />
         
         <Route

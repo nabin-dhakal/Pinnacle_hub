@@ -3,10 +3,11 @@ from core.database import engine, SessionLocal
 from models.user import User
 from core.config import settings
 from core.database import Base
-from routers import auth, document, websocket
+from routers import auth, document, websocket, oauth
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
 from core.admin import UserAdmin, DocsAdmin
+from starlette.middleware.sessions import SessionMiddleware
 
 origins = [
     "http://localhost:5173"
@@ -31,6 +32,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+
 
 admin = Admin(app   , engine)
 admin.add_view(UserAdmin)
@@ -40,7 +43,7 @@ admin.add_view(DocsAdmin)
 app.include_router(auth.router)
 app.include_router(document.router)
 app.include_router(websocket.router)
-
+app.include_router(oauth.router)
 
 @app.get("/")
 async def root():

@@ -6,6 +6,7 @@ class UserCreate(BaseModel):
     email : EmailStr
     password : str
     fullname : Optional[str] = None
+    auth_provider : str = "local"
 
 class UserLogin(BaseModel):
     username : str
@@ -18,6 +19,8 @@ class UserResponse(BaseModel):
     email: str
     fullname: Optional[str]
     is_active: bool
+    auth_provider: str
+    avatar_url: Optional[str]
 
     class Config:
         from_attributes = True

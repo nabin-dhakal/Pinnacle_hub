@@ -35,7 +35,7 @@ const Register = () => {
   };
 
   const handleOAuthLogin = (provider) => {
-    window.location.href = `http://localhost:5000/auth/${provider}`;
+    window.location.href = `http://localhost:8000/auth/${provider}/login`;
   };
 
   return (
