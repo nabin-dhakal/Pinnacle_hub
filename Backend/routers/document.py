@@ -128,16 +128,33 @@ def get_user_files(
         File.parent_id.in_(all_accessible_folder_ids)
     )
     
-    all_files_query = direct_folder_access.union(direct_file_access).union(inherited_file_access).subquery()
-    result = db.query(File).select_entity_from(all_files_query)
+    all_files = direct_folder_access.union(direct_file_access).union(inherited_file_access).all()
+    
+    file_ids = list(set([f.id for f in all_files]))
+    
+    query = db.query(File).filter(File.id.in_(file_ids))
     
     if parent_id is not None:
         if parent_id == "null":
-            result = result.filter(File.parent_id.is_(None))
+            query = query.filter(File.parent_id.is_(None))
         else:
-            result = result.filter(File.parent_id == parent_id)
+            query = query.filter(File.parent_id == parent_id)
     
-    return result.all()
+    files = query.all()
+    
+    result = []
+    for file in files:
+        file_dict = file.__dict__
+        
+        parent_accessible = False
+        if file.parent_id:
+            if file.parent_id in all_accessible_folder_ids:
+                parent_accessible = True
+        
+        file_dict['parent_accessible'] = parent_accessible
+        result.append(FileResponse.from_orm(file))
+    
+    return result
 
 @router.get("/{file_id}/history")
 def get_file_history(

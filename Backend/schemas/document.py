@@ -57,6 +57,7 @@ class FileResponse(FileBase):
     version: int = 1
     created_at: datetime
     updated_at: datetime
+    parent_accessible : bool = False
     
     class Config:
         from_attributes = True
