@@ -199,7 +199,7 @@ const Register = () => {
           </div>
         </div>
 
-        <div className="mt-6 text-center text-white/80 text-sm">
+        <div className="mt-6 text-center text-black text-sm">
           <p>Secure & Encrypted 🔒</p>
         </div>
       </div>
