@@ -189,7 +189,20 @@ const DocumentPage = () => {
 
           case "edit":
             if (!pendingLocalVersionsRef.current.has(data.version)) {
-              applyOperations(data.operations);
+              let currentContent = contentRef.current;
+              data.operations.forEach((op) => {
+                if (op.type === "insert") {
+                  currentContent =
+                    currentContent.slice(0, op.position) +
+                    op.text +
+                    currentContent.slice(op.position);
+                } else if (op.type === "delete") {
+                  currentContent =
+                    currentContent.slice(0, op.position) +
+                    currentContent.slice(op.position + op.length);
+                }
+              });
+              setContent(currentContent);
               setVersion(data.version);
             } else {
               pendingLocalVersionsRef.current.delete(data.version);
@@ -236,25 +249,6 @@ const DocumentPage = () => {
     } catch (error) {
       setConnectionStatus("disconnected");
     }
-  };
-
-  const applyOperations = (operations) => {
-    let currentContent = contentRef.current;
-
-    operations.forEach((op) => {
-      if (op.type === "insert") {
-        currentContent =
-          currentContent.slice(0, op.position) +
-          op.text +
-          currentContent.slice(op.position);
-      } else if (op.type === "delete") {
-        currentContent =
-          currentContent.slice(0, op.position) +
-          currentContent.slice(op.position + op.length);
-      }
-    });
-
-    setContent(currentContent);
   };
 
   const createOperation = (oldText, newText) => {
@@ -538,8 +532,36 @@ const DocumentPage = () => {
       newCursorPos = start + before.length;
     }
     
-    setContent(newContent);
-    autoSaveDocument(newContent);
+    const operation = createOperation(content, newContent);
+    if (operation) {
+      const operations = [].concat(operation);
+      setContent(newContent);
+
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const localVersion = versionRef.current;
+        pendingLocalVersionsRef.current.add(localVersion);
+
+        wsRef.current.send(
+          JSON.stringify({
+            type: "edit",
+            document_id: id,
+            data: {
+              operations,
+              version: localVersion,
+              timestamp: new Date().toISOString(),
+            },
+          })
+        );
+      }
+
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      saveTimeoutRef.current = setTimeout(() => {
+        autoSaveDocument(newContent);
+      }, 2000);
+    }
 
     setTimeout(() => {
       textarea.focus();
@@ -552,7 +574,6 @@ const DocumentPage = () => {
     if (!textarea) return;
 
     const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
     
     let lineStart = start;
     while (lineStart > 0 && content[lineStart - 1] !== '\n') {
@@ -562,21 +583,58 @@ const DocumentPage = () => {
     const lineEnd = content.indexOf('\n', start);
     const line = content.substring(lineStart, lineEnd === -1 ? content.length : lineEnd);
     
+    let newContent;
+    let newCursorPos;
+    
     if (line.startsWith(prefix)) {
-      const newContent = 
+      newContent = 
         content.substring(0, lineStart) + 
         line.substring(prefix.length) + 
         content.substring(lineEnd === -1 ? content.length : lineEnd);
-      setContent(newContent);
-      autoSaveDocument(newContent);
+      newCursorPos = Math.max(0, start - prefix.length);
     } else {
-      const newContent = 
+      newContent = 
         content.substring(0, lineStart) + 
         prefix + line + 
         content.substring(lineEnd === -1 ? content.length : lineEnd);
-      setContent(newContent);
-      autoSaveDocument(newContent);
+      newCursorPos = start + prefix.length;
     }
+    
+    const operation = createOperation(content, newContent);
+    if (operation) {
+      const operations = [].concat(operation);
+      setContent(newContent);
+
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        const localVersion = versionRef.current;
+        pendingLocalVersionsRef.current.add(localVersion);
+
+        wsRef.current.send(
+          JSON.stringify({
+            type: "edit",
+            document_id: id,
+            data: {
+              operations,
+              version: localVersion,
+              timestamp: new Date().toISOString(),
+            },
+          })
+        );
+      }
+
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      saveTimeoutRef.current = setTimeout(() => {
+        autoSaveDocument(newContent);
+      }, 2000);
+    }
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   if (loading) {
@@ -592,7 +650,6 @@ const DocumentPage = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Top bar */}
       <div className="bg-white border-b border-gray-200 px-4 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -693,7 +750,6 @@ const DocumentPage = () => {
           </div>
         </div>
 
-        {/* Formatting toolbar */}
         <div className="flex items-center space-x-1 mt-2 pt-2 border-t border-gray-100">
           <button
             onClick={() => applyFormatting("**", "**")}
@@ -819,7 +875,6 @@ const DocumentPage = () => {
           </button>
         </div>
 
-        {/* Find/Replace panel */}
         {showFindReplace && (
           <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-gray-100">
             <input
@@ -857,7 +912,6 @@ const DocumentPage = () => {
           </div>
         )}
 
-        {/* Error/Offline messages */}
         {error && (
           <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded">
             {error}
@@ -870,7 +924,6 @@ const DocumentPage = () => {
         )}
       </div>
 
-      {/* Editor */}
       <div className="flex-1 p-4 overflow-auto">
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200">
           <textarea
@@ -888,7 +941,6 @@ const DocumentPage = () => {
         </div>
       </div>
 
-      {/* Status bar */}
       <div className="bg-white border-t border-gray-200 px-4 py-1.5 text-xs text-gray-500">
         <div className="flex justify-between">
           <div className="flex space-x-4">
@@ -905,7 +957,6 @@ const DocumentPage = () => {
         </div>
       </div>
 
-      {/* Share modal */}
       {showShareModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded p-6 w-96">
