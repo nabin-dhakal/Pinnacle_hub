@@ -18,6 +18,8 @@ const DocumentPage = () => {
   const [activeUsers, setActiveUsers] = useState([]);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState("");
   const [sharePermission, setSharePermission] = useState("VIEW");
@@ -27,6 +29,9 @@ const DocumentPage = () => {
   const [replaceText, setReplaceText] = useState("");
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportFormat, setExportFormat] = useState("txt");
+  const [selectedText, setSelectedText] = useState("");
 
   const wsRef = useRef(null);
   const contentRef = useRef(content);
@@ -115,6 +120,7 @@ const DocumentPage = () => {
 
       const data = await response.json();
       setDoc(data);
+      setNewName(data.name);
 
       if (typeof data.content === "string") {
         setContent(data.content);
@@ -152,7 +158,6 @@ const DocumentPage = () => {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("WebSocket connected");
         setConnectionStatus("connected");
         setError(null);
 
@@ -195,7 +200,7 @@ const DocumentPage = () => {
             setActiveUsers((prev) =>
               prev.some((u) => u.id === data.user_id)
                 ? prev
-                : [...prev, { id: data.user_id }]
+                : [...prev, { id: data.user_id, name: data.user_name || "User" }]
             );
             break;
 
@@ -205,52 +210,20 @@ const DocumentPage = () => {
             );
             break;
 
-          case "cursor":
-            console.log("Cursor update:", data);
-            break;
-
-          case "presence":
-            console.log("Presence update:", data);
-            break;
-
-          case "document_saved":
-            if (data.content) {
-              if (typeof data.content === "string") {
-                setContent(data.content);
-              } else if (data.content?.ops) {
-                const text = data.content.ops
-                  .map((op) => (typeof op.insert === "string" ? op.insert : ""))
-                  .join("");
-                setContent(text);
-              } else if (data.content?.text?.text) {
-                setContent(data.content.text.text);
-              }
-              setVersion(data.version || versionRef.current);
-            }
-            break;
-
           case "error":
-            console.log("ws error from server", data);
             setError(data.message);
             break;
-
-          default:
-            console.log("Unknown message type:", data.type);
         }
       };
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+      ws.onerror = () => {
         setConnectionStatus("disconnected");
-        setError(
-          "Real-time connection lost. Changes will be saved when connection resumes."
-        );
+        setError("Connection lost. Changes will save when online.");
       };
 
       ws.onclose = () => {
         if (wsRef.current !== ws) return;
 
-        console.log("WebSocket disconnected");
         setConnectionStatus("disconnected");
         wsRef.current = null;
 
@@ -261,7 +234,6 @@ const DocumentPage = () => {
         }, 3000);
       };
     } catch (error) {
-      console.error("Failed to connect WebSocket:", error);
       setConnectionStatus("disconnected");
     }
   };
@@ -364,10 +336,7 @@ const DocumentPage = () => {
   };
 
   const autoSaveDocument = async (contentToSave) => {
-    if (!isOnline) {
-      console.log("Offline: changes will be saved when online");
-      return;
-    }
+    if (!isOnline) return;
 
     try {
       const token = getToken();
@@ -392,23 +361,10 @@ const DocumentPage = () => {
       const updatedDoc = await response.json();
       setDoc(updatedDoc);
       setVersion(updatedDoc.version || versionRef.current + 1);
-
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: "document_save",
-            document_id: id,
-            data: {
-              timestamp: new Date().toISOString(),
-            },
-          })
-        );
-      }
-
       setError(null);
     } catch (error) {
       console.error("Failed to auto-save document:", error);
-      setError("Auto-save failed. Changes will be retried.");
+      setError("Auto-save failed");
     }
   };
 
@@ -416,6 +372,39 @@ const DocumentPage = () => {
     setSaving(true);
     await autoSaveDocument(content);
     setSaving(false);
+  };
+
+  const handleRename = async () => {
+    if (!newName.trim() || newName === doc.name) {
+      setIsRenaming(false);
+      return;
+    }
+
+    try {
+      const token = getToken();
+
+      const response = await fetch(`${BASE_URL}/files/${id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newName.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const updatedDoc = await response.json();
+      setDoc(updatedDoc);
+      setIsRenaming(false);
+    } catch (error) {
+      console.error("Failed to rename document:", error);
+      setError("Failed to rename document");
+    }
   };
 
   const handleShare = async () => {
@@ -442,14 +431,13 @@ const DocumentPage = () => {
 
       setShowShareModal(false);
       setShareUsername("");
-      alert("Document shared successfully");
     } catch (error) {
       console.error("Failed to share document:", error);
       setError("Failed to share document");
     }
   };
 
-  const handleFindReplace = () => {
+  const handleFind = () => {
     if (!findText || !textareaRef.current) return;
 
     const textarea = textareaRef.current;
@@ -480,6 +468,11 @@ const DocumentPage = () => {
       const newContent = content.substring(0, start) + replaceText + content.substring(end);
       setContent(newContent);
       autoSaveDocument(newContent);
+      
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start, start + replaceText.length);
+      }, 0);
     }
   };
 
@@ -507,18 +500,89 @@ const DocumentPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${doc?.name || 'document'}.txt`;
+    a.download = `${doc?.name || 'document'}.${exportFormat}`;
     a.click();
     URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const handleTextSelection = () => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    setSelectedText(content.substring(start, end));
+  };
+
+  const applyFormatting = (before, after = "") => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = content.substring(start, end);
+    
+    let newContent;
+    let newCursorPos;
+
+    if (selected) {
+      newContent = 
+        content.substring(0, start) + 
+        before + selected + after + 
+        content.substring(end);
+      newCursorPos = start + before.length + selected.length + after.length;
+    } else {
+      newContent = 
+        content.substring(0, start) + 
+        before + after + 
+        content.substring(end);
+      newCursorPos = start + before.length;
+    }
+    
+    setContent(newContent);
+    autoSaveDocument(newContent);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  const applyList = (prefix) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    
+    let lineStart = start;
+    while (lineStart > 0 && content[lineStart - 1] !== '\n') {
+      lineStart--;
+    }
+    
+    const lineEnd = content.indexOf('\n', start);
+    const line = content.substring(lineStart, lineEnd === -1 ? content.length : lineEnd);
+    
+    if (line.startsWith(prefix)) {
+      const newContent = 
+        content.substring(0, lineStart) + 
+        line.substring(prefix.length) + 
+        content.substring(lineEnd === -1 ? content.length : lineEnd);
+      setContent(newContent);
+      autoSaveDocument(newContent);
+    } else {
+      const newContent = 
+        content.substring(0, lineStart) + 
+        prefix + line + 
+        content.substring(lineEnd === -1 ? content.length : lineEnd);
+      setContent(newContent);
+      autoSaveDocument(newContent);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-xl text-gray-600">Loading document...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
     );
   }
@@ -527,268 +591,351 @@ const DocumentPage = () => {
   const isOwner = doc?.owner_id === currentUserId;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
-        <div className="px-4 py-2">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate("/")}
-                className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Back</span>
-              </button>
-              
-              <div className="flex items-center space-x-3">
-                <h1 className="text-lg font-semibold text-gray-800">{doc?.name}</h1>
-                
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      connectionStatus === "connected"
-                        ? "bg-green-500"
-                        : connectionStatus === "connecting"
-                        ? "bg-yellow-500 animate-pulse"
-                        : "bg-red-500"
-                    }`}
-                  />
-                  <span className="text-sm text-gray-500">
-                    {connectionStatus === "connected"
-                      ? "Connected"
-                      : connectionStatus === "connecting"
-                      ? "Connecting..."
-                      : "Offline"}
-                  </span>
-                </div>
-              </div>
-            </div>
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Top bar */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate("/")}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
 
-            <div className="flex items-center space-x-3">
-              {activeUsers.length > 0 && (
-                <div className="flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-1">
-                  <div className="flex -space-x-2">
-                    {activeUsers.slice(0, 3).map((user, index) => (
-                      <div
-                        key={user.id}
-                        className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs flex items-center justify-center border-2 border-white"
-                        title={`User ${index + 1}`}
-                      >
-                        {user.id?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    ))}
-                    {activeUsers.length > 3 && (
-                      <div className="w-6 h-6 rounded-full bg-gray-400 text-white text-xs flex items-center justify-center border-2 border-white">
-                        +{activeUsers.length - 3}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-600">
-                    {activeUsers.length} online
-                  </span>
-                </div>
-              )}
-
+            {isRenaming ? (
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">v{version}</span>
-                {saving ? (
-                  <span className="text-sm text-gray-500 flex items-center">
-                    <svg className="animate-spin h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename();
+                    if (e.key === "Escape") {
+                      setNewName(doc.name);
+                      setIsRenaming(false);
+                    }
+                  }}
+                />
+                <button onClick={handleRename} className="text-sm text-blue-600">Save</button>
+                <button onClick={() => { setNewName(doc.name); setIsRenaming(false); }} className="text-sm text-gray-500">Cancel</button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <h1 className="text-base font-medium text-gray-900">{doc?.name}</h1>
+                {isOwner && (
+                  <button onClick={() => setIsRenaming(true)} className="text-gray-400 hover:text-gray-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                    Saving...
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-500">Saved</span>
+                  </button>
                 )}
               </div>
+            )}
 
-              <button
-                onClick={manualSave}
-                disabled={saving || !isOnline}
-                className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save Now
-              </button>
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === "connected" ? "bg-green-500" :
+                connectionStatus === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-red-500"
+              }`} />
+              <span className="text-xs text-gray-500">
+                {connectionStatus === "connected" ? "Connected" :
+                 connectionStatus === "connecting" ? "Connecting..." : "Offline"}
+              </span>
             </div>
+
+            {activeUsers.length > 0 && (
+              <div className="flex items-center -space-x-2">
+                {activeUsers.slice(0, 3).map((user) => (
+                  <div
+                    key={user.id}
+                    className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center"
+                    title={user.name}
+                  >
+                    <span className="text-xs font-medium text-blue-800">
+                      {user.name?.[0]?.toUpperCase() || "U"}
+                    </span>
+                  </div>
+                ))}
+                {activeUsers.length > 3 && (
+                  <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+                    <span className="text-xs text-gray-600">+{activeUsers.length - 3}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center space-x-2 py-1 border-t border-gray-100">
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Bold">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
-              </svg>
-            </button>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Italic">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 4h8 M6 20h8 M14 4L8 20" />
-              </svg>
-            </button>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Underline">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 4v8a4 4 0 008 0V4 M4 20h16" />
-              </svg>
-            </button>
-            <span className="w-px h-6 bg-gray-300 mx-1"></span>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Find/Replace" onClick={() => setShowFindReplace(!showFindReplace)}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Zoom Out" onClick={handleZoomOut}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
-              </svg>
-            </button>
-            <span className="text-sm text-gray-600">{zoom}%</span>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Zoom In" onClick={handleZoomIn}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Reset Zoom" onClick={handleResetZoom}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-            <span className="w-px h-6 bg-gray-300 mx-1"></span>
-            <button className="p-1.5 rounded hover:bg-gray-100 text-gray-600" title="Export" onClick={handleExport}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+          <div className="flex items-center space-x-3">
+            <span className="text-xs text-gray-500">v{version}</span>
+            <span className="text-xs text-gray-500">
+              {saving ? "Saving..." : "Saved"}
+            </span>
+            <button
+              onClick={manualSave}
+              disabled={saving || !isOnline}
+              className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Save
             </button>
             {isOwner && (
               <button
                 onClick={() => setShowShareModal(true)}
-                className="px-3 py-1.5 bg-green-50 text-green-600 text-sm font-medium rounded-lg hover:bg-green-100 transition-colors ml-auto"
+                className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
               >
                 Share
               </button>
             )}
           </div>
-
-          {showFindReplace && (
-            <div className="flex items-center space-x-2 py-2 border-t border-gray-100 bg-gray-50">
-              <input
-                type="text"
-                placeholder="Find"
-                value={findText}
-                onChange={(e) => setFindText(e.target.value)}
-                className="px-3 py-1 border rounded text-sm"
-              />
-              <input
-                type="text"
-                placeholder="Replace with"
-                value={replaceText}
-                onChange={(e) => setReplaceText(e.target.value)}
-                className="px-3 py-1 border rounded text-sm"
-              />
-              <button
-                onClick={handleFindReplace}
-                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Find
-              </button>
-              <button
-                onClick={handleReplace}
-                className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
-              >
-                Replace
-              </button>
-              <button
-                onClick={handleReplaceAll}
-                className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
-              >
-                Replace All
-              </button>
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-2 bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          {!isOnline && (
-            <div className="mt-2 bg-yellow-50 border border-yellow-200 text-yellow-600 px-4 py-2 rounded-lg text-sm">
-              You're offline. Changes will sync when connection is restored.
-            </div>
-          )}
         </div>
+
+        {/* Formatting toolbar */}
+        <div className="flex items-center space-x-1 mt-2 pt-2 border-t border-gray-100">
+          <button
+            onClick={() => applyFormatting("**", "**")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700 font-bold"
+            title="Bold"
+          >
+            B
+          </button>
+          <button
+            onClick={() => applyFormatting("*", "*")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700 italic"
+            title="Italic"
+          >
+            I
+          </button>
+          <button
+            onClick={() => applyFormatting("`", "`")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700 font-mono"
+            title="Code"
+          >
+            &lt;&gt;
+          </button>
+          <span className="w-px h-4 bg-gray-300 mx-1"></span>
+          <button
+            onClick={() => applyFormatting("# ")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Heading 1"
+          >
+            H1
+          </button>
+          <button
+            onClick={() => applyFormatting("## ")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Heading 2"
+          >
+            H2
+          </button>
+          <button
+            onClick={() => applyFormatting("### ")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Heading 3"
+          >
+            H3
+          </button>
+          <span className="w-px h-4 bg-gray-300 mx-1"></span>
+          <button
+            onClick={() => applyList("- ")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Bullet list"
+          >
+            • List
+          </button>
+          <button
+            onClick={() => applyList("1. ")}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Numbered list"
+          >
+            1. List
+          </button>
+          <span className="w-px h-4 bg-gray-300 mx-1"></span>
+          <button
+            onClick={() => setShowFindReplace(!showFindReplace)}
+            className={`p-1.5 rounded hover:bg-gray-100 text-gray-700 ${showFindReplace ? "bg-gray-100" : ""}`}
+            title="Find and replace"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+              title="Export"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+            {showExportMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg py-1 z-10">
+                <button
+                  onClick={() => { setExportFormat("txt"); handleExport(); }}
+                  className="block w-full text-left px-4 py-1 text-sm hover:bg-gray-50"
+                >
+                  Export as TXT
+                </button>
+                <button
+                  onClick={() => { setExportFormat("md"); handleExport(); }}
+                  className="block w-full text-left px-4 py-1 text-sm hover:bg-gray-50"
+                >
+                  Export as MD
+                </button>
+              </div>
+            )}
+          </div>
+          <span className="w-px h-4 bg-gray-300 mx-1"></span>
+          <button
+            onClick={handleZoomOut}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Zoom out"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
+            </svg>
+          </button>
+          <span className="text-xs text-gray-600 w-12 text-center">{zoom}%</span>
+          <button
+            onClick={handleZoomIn}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700"
+            title="Zoom in"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-700 text-xs"
+            title="Reset zoom"
+          >
+            100%
+          </button>
+        </div>
+
+        {/* Find/Replace panel */}
+        {showFindReplace && (
+          <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-gray-100">
+            <input
+              type="text"
+              placeholder="Find"
+              value={findText}
+              onChange={(e) => setFindText(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-48"
+            />
+            <input
+              type="text"
+              placeholder="Replace with"
+              value={replaceText}
+              onChange={(e) => setReplaceText(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-sm w-48"
+            />
+            <button
+              onClick={handleFind}
+              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+            >
+              Find
+            </button>
+            <button
+              onClick={handleReplace}
+              className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
+            >
+              Replace
+            </button>
+            <button
+              onClick={handleReplaceAll}
+              className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+            >
+              Replace all
+            </button>
+          </div>
+        )}
+
+        {/* Error/Offline messages */}
+        {error && (
+          <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-1.5 rounded">
+            {error}
+          </div>
+        )}
+        {!isOnline && (
+          <div className="mt-2 text-xs text-yellow-600 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded">
+            Offline - changes will save when connection is restored
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 p-8 overflow-auto">
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6">
+      {/* Editor */}
+      <div className="flex-1 p-4 overflow-auto">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={handleContentChange}
-            className="w-full min-h-[500px] p-4 border border-gray-200 rounded-lg font-mono text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            placeholder="Start typing... Changes are auto-saved and shared in real-time"
+            onSelect={handleTextSelection}
+            onClick={handleTextSelection}
+            onKeyUp={handleTextSelection}
+            className="w-full p-4 font-mono text-sm resize-none focus:outline-none min-h-[calc(100vh-220px)]"
+            placeholder="Start typing..."
             disabled={connectionStatus === "connecting" && !content}
             style={{ fontSize: `${zoom}%` }}
           />
         </div>
       </div>
 
-      <div className="bg-white border-t border-gray-200 px-4 py-2 text-sm text-gray-600">
-        <div className="flex justify-between items-center">
+      {/* Status bar */}
+      <div className="bg-white border-t border-gray-200 px-4 py-1.5 text-xs text-gray-500">
+        <div className="flex justify-between">
           <div className="flex space-x-4">
             <span>Words: {wordCount}</span>
             <span>Characters: {charCount}</span>
-          </div>
-          <div className="flex space-x-4">
             <span>Lines: {content.split('\n').length}</span>
-            <span>Owner: {isOwner ? 'You' : doc?.owner_id}</span>
+            {selectedText && (
+              <span>Selected: {selectedText.length} chars</span>
+            )}
+          </div>
+          <div>
+            {isOwner ? "Owner" : "Collaborator"}
           </div>
         </div>
       </div>
 
+      {/* Share modal */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold mb-4">Share Document</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={shareUsername}
-                  onChange={(e) => setShareUsername(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter username"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Permission
-                </label>
-                <select
-                  value={sharePermission}
-                  onChange={(e) => setSharePermission(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="VIEW">View Only</option>
-                  <option value="SUGGEST">Suggest</option>
-                  <option value="EDIT">Edit</option>
-                </select>
-              </div>
-              <div className="flex space-x-2 pt-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white rounded p-6 w-96">
+            <h3 className="text-base font-medium mb-4">Share document</h3>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Username"
+                value={shareUsername}
+                onChange={(e) => setShareUsername(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              />
+              <select
+                value={sharePermission}
+                onChange={(e) => setSharePermission(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              >
+                <option value="VIEW">Can view</option>
+                <option value="EDIT">Can edit</option>
+              </select>
+              <div className="flex space-x-2 pt-2">
                 <button
                   onClick={handleShare}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
                 >
                   Share
                 </button>
                 <button
                   onClick={() => setShowShareModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50"
                 >
                   Cancel
                 </button>
