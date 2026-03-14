@@ -14,6 +14,9 @@ function App() {
     <BrowserRouter>
       <Routes>
 
+        <Route path="/api/*" element={null} />
+        <Route path="/auth/*" element={null} />
+
         <Route
           path="/"
           element={
