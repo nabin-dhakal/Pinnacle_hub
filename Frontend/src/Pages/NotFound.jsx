@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 
 const NotFound = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
       <div className="text-center">
         <div className="relative">
-          <h1 className="text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 animate-pulse">
+          <h1 className="text-9xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600 animate-pulse">
             404
           </h1>
           <div className="absolute inset-0 flex items-center justify-center opacity-10">
