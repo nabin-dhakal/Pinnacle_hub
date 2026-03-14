@@ -10,7 +10,8 @@ from core.admin import UserAdmin, DocsAdmin
 from starlette.middleware.sessions import SessionMiddleware
 
 origins = [
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "https://pinnacle-hub.nabindhakal10.com.np"
 ]
 
 # Base.metadata.drop_all(bind=engine)   

@@ -29,7 +29,7 @@ oauth.register(
 @router.get("/login")
 async def google_login(request: Request):
     try:
-        redirect_uri = str(request.url_for('google_callback'))
+        redirect_uri = "https://pinnacle-hub.nabindhakal10.com.np/auth/google/callback"
         logger.info(f"Login initiated with redirect_uri: {redirect_uri}")
         request.session['oauth_redirect_uri'] = redirect_uri
         return await oauth.google.authorize_redirect(request, redirect_uri)
