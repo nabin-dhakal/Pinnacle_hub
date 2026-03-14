@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { logout, getToken, getCurrentUserId } from "../services/auth";
 import { useState, useEffect } from "react";
 
-const BASE_URL = "https://api.pinnacle-hub.nabindhakal10.com.np";
+const BASE_URL = "https://api-pinnacle-hub.nabindhakal10.com.np";
 
 const HomePage = () => {
   const navigate = useNavigate();

@@ -1,4 +1,4 @@
-const BASE_URL = "api.pinnacle-hub.nabindhakal10.com.np"; 
+const BASE_URL = "api-pinnacle-hub.nabindhakal10.com.np"; 
 
 export const loginUser = async (username, password) => {
   const response = await fetch(`${BASE_URL}/auth/login`, {

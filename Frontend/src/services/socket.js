@@ -1,7 +1,7 @@
 let socket = null;
 let documentId = 'default-doc';
 
-const WS_URL = 'ws://api.pinnacle-hub.nabindhakal10.com.np';
+const WS_URL = 'ws://api-pinnacle-hub.nabindhakal10.com.np';
 
 export const connectSocket = (docId = 'default-doc', username = 'Anonymous', userId = null) => {
   if (socket && socket.readyState === WebSocket.OPEN) {
