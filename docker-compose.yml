@@ -1,10 +1,4 @@
 services:
-  redis:
-    container_name: pinnacle_redis
-    image: redis:8.4.0
-    ports:
-      - "6379:6379"
-
   backend:
     container_name: pinnacle_backend
     build:
@@ -14,8 +8,6 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
-    depends_on:
-      - redis
 
   frontend:
     container_name: pinnacle_frontend

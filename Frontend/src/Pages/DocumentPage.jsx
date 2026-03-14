@@ -2,8 +2,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getToken, getCurrentUserId } from "../services/auth";
 import { useState, useEffect, useRef } from "react";
 
-const BASE_URL = "http://localhost:8000";
-const WS_URL = "ws://localhost:8000";
+const BASE_URL = "https://pinnacle-hub.nabindhakal10.com.np";
+const WS_URL = "ws://pinnacle-hub.nabindhakal10.com.np";
 
 const DocumentPage = () => {
   const { id } = useParams();

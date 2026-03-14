@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8000"; 
+const BASE_URL = "pinnacle-hub.nabindhakal10.com.np"; 
 
 export const loginUser = async (username, password) => {
   const response = await fetch(`${BASE_URL}/auth/login`, {
@@ -19,7 +19,7 @@ export const loginUser = async (username, password) => {
 };
 
 export const registerUser = async ({ username, email, password }) => {
-  const res = await fetch("http://localhost:8000/auth/register", {
+  const res = await fetch(`${BASE_URL}/auth/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
