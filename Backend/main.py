@@ -35,10 +35,10 @@ app.add_middleware(
 )
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
-if settings.DEBUG:
-    admin = Admin(app,engine)
-    admin.add_view(UserAdmin)
-    admin.add_view(DocsAdmin)
+# if settings.DEBUG:
+#     admin = Admin(app,engine)
+#     admin.add_view(UserAdmin)
+#     admin.add_view(DocsAdmin)
 
 
 app.include_router(auth.router)
