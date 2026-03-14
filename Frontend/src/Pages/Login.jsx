@@ -31,7 +31,7 @@ const Login = () => {
   };
 
   const handleOAuthLogin = (provider) => {
-    window.location.href = `https://pinnacle-hub.nabindhakal10.com.np/auth/${provider}/login`;
+    window.location.href = `https://pinnacle-hub.nabindhakal10.com.np/api/auth/${provider}/login`;
   };
 
   return (
