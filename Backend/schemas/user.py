@@ -6,6 +6,7 @@ class UserCreate(BaseModel):
     username : str
     email : EmailStr
     password : str
+    confirm_password : str
     fullname : Optional[str] = None
     auth_provider : str = "local"
 
